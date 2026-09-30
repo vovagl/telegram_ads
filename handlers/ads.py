@@ -3,10 +3,15 @@ import json
 from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    LabeledPrice,
+    PreCheckoutQuery,
+)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from config import ADMIN_ID
+from config import ADMIN_ID, YOOKASSA_PROVIDER_TOKEN
 
 from database import (
     create_ad,
@@ -34,7 +39,10 @@ class AdForm(StatesGroup):
 
 
 @router.callback_query(F.data == "create_ad")
-async def create_ad_handler(callback: CallbackQuery, state: FSMContext):
+async def create_ad_handler(
+    callback: CallbackQuery,
+    state: FSMContext
+):
     ad_id = create_ad(callback.from_user.id)
 
     await state.update_data(
@@ -54,8 +62,13 @@ async def create_ad_handler(callback: CallbackQuery, state: FSMContext):
 
 
 @router.message(AdForm.brand)
-async def brand_handler(message: Message, state: FSMContext):
-    await state.update_data(brand=message.text)
+async def brand_handler(
+    message: Message,
+    state: FSMContext
+):
+    await state.update_data(
+        brand=message.text
+    )
 
     await message.answer(
         "Введите модель автомобиля.\n\n"
@@ -66,8 +79,13 @@ async def brand_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.model)
-async def model_handler(message: Message, state: FSMContext):
-    await state.update_data(model=message.text)
+async def model_handler(
+    message: Message,
+    state: FSMContext
+):
+    await state.update_data(
+        model=message.text
+    )
 
     await message.answer(
         "Введите год выпуска.\n\n"
@@ -78,7 +96,10 @@ async def model_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.year)
-async def year_handler(message: Message, state: FSMContext):
+async def year_handler(
+    message: Message,
+    state: FSMContext
+):
     if not message.text.isdigit():
         await message.answer(
             "❌ Введите год цифрами.\n\n"
@@ -94,7 +115,9 @@ async def year_handler(message: Message, state: FSMContext):
         )
         return
 
-    await state.update_data(year=year)
+    await state.update_data(
+        year=year
+    )
 
     await message.answer(
         "Введите пробег в километрах.\n\n"
@@ -105,7 +128,10 @@ async def year_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.mileage)
-async def mileage_handler(message: Message, state: FSMContext):
+async def mileage_handler(
+    message: Message,
+    state: FSMContext
+):
     if not message.text.isdigit():
         await message.answer(
             "❌ Введите пробег цифрами.\n\n"
@@ -126,7 +152,10 @@ async def mileage_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.gearbox)
-async def gearbox_handler(message: Message, state: FSMContext):
+async def gearbox_handler(
+    message: Message,
+    state: FSMContext
+):
     await state.update_data(
         gearbox=message.text
     )
@@ -140,7 +169,10 @@ async def gearbox_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.engine)
-async def engine_handler(message: Message, state: FSMContext):
+async def engine_handler(
+    message: Message,
+    state: FSMContext
+):
     await state.update_data(
         engine=message.text
     )
@@ -154,7 +186,10 @@ async def engine_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.price)
-async def price_handler(message: Message, state: FSMContext):
+async def price_handler(
+    message: Message,
+    state: FSMContext
+):
     await state.update_data(
         price=message.text
     )
@@ -168,7 +203,10 @@ async def price_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.city)
-async def city_handler(message: Message, state: FSMContext):
+async def city_handler(
+    message: Message,
+    state: FSMContext
+):
     await state.update_data(
         city=message.text
     )
@@ -183,7 +221,10 @@ async def city_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.description)
-async def description_handler(message: Message, state: FSMContext):
+async def description_handler(
+    message: Message,
+    state: FSMContext
+):
     await state.update_data(
         description=message.text
     )
@@ -196,7 +237,10 @@ async def description_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.contact)
-async def contact_handler(message: Message, state: FSMContext):
+async def contact_handler(
+    message: Message,
+    state: FSMContext
+):
     await state.update_data(
         contact=message.text
     )
@@ -223,7 +267,10 @@ async def contact_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.photos, F.photo)
-async def photo_handler(message: Message, state: FSMContext):
+async def photo_handler(
+    message: Message,
+    state: FSMContext
+):
     data = await state.get_data()
 
     photos = data.get("photos", [])
@@ -250,7 +297,9 @@ async def photo_handler(message: Message, state: FSMContext):
 
 
 @router.message(AdForm.photos)
-async def wrong_photo_handler(message: Message):
+async def wrong_photo_handler(
+    message: Message
+):
     await message.answer(
         "📸 Отправьте именно фотографию автомобиля "
         "или нажмите «Готово»."
@@ -338,15 +387,16 @@ async def photos_done_handler(
 
 
 # ==========================================================
-# ВРЕМЕННАЯ ЗАГЛУШКА ОПЛАТЫ
+# ОПЛАТА ЧЕРЕЗ TELEGRAM PAYMENTS / ЮKASSA
 # ==========================================================
 
 @router.callback_query(F.data.startswith("pay_"))
-async def payment_stub_handler(
-    callback: CallbackQuery,
-    bot: Bot
+async def payment_handler(
+    callback: CallbackQuery
 ):
-    ad_id = int(callback.data.split("_")[1])
+    ad_id = int(
+        callback.data.split("_")[1]
+    )
 
     ad = get_ad(ad_id)
 
@@ -364,12 +414,90 @@ async def payment_stub_handler(
         )
         return
 
-    # Временная имитация успешной оплаты.
-    fake_payment_id = f"TEST_PAYMENT_{ad_id}"
+    if not YOOKASSA_PROVIDER_TOKEN:
+        await callback.answer(
+            "Оплата пока не настроена.",
+            show_alert=True
+        )
+        return
+
+    await callback.message.answer_invoice(
+        title="Публикация объявления",
+        description=(
+            f"Публикация объявления №{ad_id} "
+            f"на 10 дней"
+        ),
+        payload=f"ad_{ad_id}",
+        provider_token=YOOKASSA_PROVIDER_TOKEN,
+        currency="RUB",
+        prices=[
+            LabeledPrice(
+                label="Публикация объявления",
+                amount=10000
+            )
+        ],
+        need_phone_number=True,
+        send_phone_number_to_provider=True
+    )
+
+    await callback.answer()
+
+
+# ==========================================================
+# ПОДТВЕРЖДЕНИЕ ПЛАТЕЖА
+# ==========================================================
+
+@router.pre_checkout_query()
+async def process_pre_checkout(
+    pre_checkout_query: PreCheckoutQuery
+):
+    await pre_checkout_query.answer(
+        ok=True
+    )
+
+
+# ==========================================================
+# УСПЕШНАЯ ОПЛАТА
+# ==========================================================
+
+@router.message(F.successful_payment)
+async def successful_payment_handler(
+    message: Message,
+    bot: Bot
+):
+    payment = message.successful_payment
+
+    payload = payment.invoice_payload
+
+    if not payload.startswith("ad_"):
+        return
+
+    ad_id = int(
+        payload.split("_")[1]
+    )
+
+    ad = get_ad(ad_id)
+
+    if not ad:
+        await message.answer(
+            "Платёж получен, но объявление не найдено.\n"
+            "Обратитесь к администратору."
+        )
+        return
+
+    if ad["paid"]:
+        await message.answer(
+            "Платёж уже был обработан."
+        )
+        return
+
+    payment_id = (
+        payment.provider_payment_charge_id
+    )
 
     mark_paid(
         ad_id,
-        fake_payment_id
+        payment_id
     )
 
     ad = get_ad(ad_id)
@@ -384,10 +512,11 @@ async def payment_stub_handler(
         f"🔧 Двигатель: {ad['engine']}\n"
         f"💰 Цена: {ad['price']}\n"
         f"📍 Город: {ad['city']}\n\n"
-        f"📝 Описание:\n{ad['description']}\n\n"
+        f"📝 Описание:\n"
+        f"{ad['description']}\n\n"
         f"☎️ Контакт: {ad['contact']}\n\n"
         f"💳 Оплата: 100 ₽\n"
-        f"🧪 Платёж: тестовая заглушка"
+        f"✅ Платёж подтверждён"
     )
 
     builder = InlineKeyboardBuilder()
@@ -411,8 +540,9 @@ async def payment_stub_handler(
             reply_markup=builder.as_markup()
         )
 
-        # Отправляем фотографии админу
-        photos = json.loads(ad["photo_id"])
+        photos = json.loads(
+            ad["photo_id"]
+        )
 
         for photo_id in photos:
             await bot.send_photo(
@@ -420,20 +550,27 @@ async def payment_stub_handler(
                 photo_id
             )
 
-    await callback.message.answer(
-        f"✅ Оплата получена!\n\n"
-        f"Объявление №{ad_id}\n"
-        f"Сумма: 100 ₽\n\n"
-        "🛡 Объявление отправлено на модерацию.\n"
-        "После проверки оно будет опубликовано в канале."
+    await message.answer(
+        f"✅ Оплата успешно получена!\n\n"
+        f"Объявление №{ad_id} отправлено "
+        f"на модерацию.\n\n"
+        "После проверки оно будет опубликовано."
     )
 
-    await callback.answer()
 
+# ==========================================================
+# МОДЕРАЦИЯ — ОДОБРИТЬ
+# ==========================================================
 
-@router.callback_query(F.data.startswith("approve_"))
-async def approve_ad_handler(callback: CallbackQuery):
-    ad_id = int(callback.data.split("_")[1])
+@router.callback_query(
+    F.data.startswith("approve_")
+)
+async def approve_ad_handler(
+    callback: CallbackQuery
+):
+    ad_id = int(
+        callback.data.split("_")[1]
+    )
 
     ad = get_ad(ad_id)
 
@@ -463,15 +600,29 @@ async def approve_ad_handler(callback: CallbackQuery):
 
     await callback.message.answer(
         f"✅ Объявление №{ad_id} одобрено.\n\n"
-        "Статус: approved\n"
-        "Следующий этап — публикация в Telegram-канале."
+        "Статус: approved\n\n"
+        "Следующий этап — публикация "
+        "в Telegram-канале."
     )
 
-    await callback.answer("Объявление одобрено.")
+    await callback.answer(
+        "Объявление одобрено."
+    )
 
-@router.callback_query(F.data.startswith("reject_"))
-async def reject_ad_handler(callback: CallbackQuery):
-    ad_id = int(callback.data.split("_")[1])
+
+# ==========================================================
+# МОДЕРАЦИЯ — ОТКЛОНИТЬ
+# ==========================================================
+
+@router.callback_query(
+    F.data.startswith("reject_")
+)
+async def reject_ad_handler(
+    callback: CallbackQuery
+):
+    ad_id = int(
+        callback.data.split("_")[1]
+    )
 
     ad = get_ad(ad_id)
 
@@ -504,4 +655,6 @@ async def reject_ad_handler(callback: CallbackQuery):
         "Статус: rejected"
     )
 
-    await callback.answer("Объявление отклонено.")
+    await callback.answer(
+        "Объявление отклонено."
+    )
